@@ -1,0 +1,41 @@
+name: Hugging Face TRELLIS.2 backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Audit lists files. Backup copies the official MIT-licensed model into a PRIVATE repository."
+        required: true
+        default: audit
+        type: choice
+        options:
+          - audit
+          - backup
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hf-trellis-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@v4
+      - name: Prepare Hugging Face client
+        run: python -m pip install --disable-pip-version-check "huggingface_hub>=0.34,<2" "requests>=2.31,<3"
+      - name: Audit upstream files (no secret needed)
+        if: ${{ inputs.mode == 'audit' }}
+        env:
+          BACKUP_MODE: audit
+        run: python .github/scripts/backup_trellis_to_hf.py
+      - name: Copy model to private Hugging Face repository
+        if: ${{ inputs.mode == 'backup' }}
+        env:
+          BACKUP_MODE: backup
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python .github/scripts/backup_trellis_to_hf.py
